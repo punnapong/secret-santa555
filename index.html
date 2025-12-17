@@ -1,81 +1,65 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>จับฉลากของขวัญปีใหม่ 🎁</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: sans-serif; background:#f7f7f7; padding:20px; }
-    .box { max-width:500px; margin:auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-    h2 { text-align:center; }
-    input, button { width:100%; padding:10px; margin-top:10px; font-size:16px; }
-    button { background:#4CAF50; color:white; border:none; border-radius:5px; }
-    button:hover { background:#45a049; }
-    #result { margin-top:20px; font-size:18px; text-align:center; }
-  </style>
+<meta charset="UTF-8">
+<title>จับฉลากปีใหม่</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+body { font-family: sans-serif; text-align: center; }
+input, button { font-size: 20px; padding: 10px; margin: 5px; }
+</style>
 </head>
+
 <body>
-
-<div class="box">
-  <h2>🎁 จับฉลากของขวัญปีใหม่</h2>
-  <p>ใส่ <b>ชื่อของคุณ</b> แล้วกดปุ่ม ระบบจะบอกว่าคุณต้องซื้อของขวัญให้ใคร<br>
-     <small>(จับได้แค่ครั้งเดียว)</small></p>
-
-  <input id="name" placeholder="พิมพ์ชื่อของคุณ" />
-  <button onclick="draw()">จับฉลาก</button>
-
-  <div id="result"></div>
-</div>
+<h2>กรอกรหัสของคุณ</h2>
+<input id="code" placeholder="เช่น A8F2K9">
+<br>
+<button onclick="draw()">จับฉลาก</button>
+<p id="result"></p>
 
 <script>
-  // ===== รายชื่อทั้งหมด (แก้ไขตรงนี้) =====
-  const people = [
-    "เติร์ด",
-    "เบิร์ด",
-    "เมย์",
-    "ไบร์ท"
-  ];
+// 🔧 ใส่ config จาก Firebase ของคุณ
+firebase.initializeApp({
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT"
+});
 
-  // ===== สุ่มรายชื่อแบบไม่ซ้ำ =====
-  let shuffled = [...people];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+const db = firebase.firestore();
+const prizes = ["ไบร์ท", "เติร์ด", "เบิร์ด", "เมย์"];
+
+async function draw() {
+  const code = document.getElementById("code").value.trim();
+  const output = document.getElementById("result");
+
+  if (!code) return;
+
+  const ref = db.collection("users").doc(code);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    output.innerText = "รหัสไม่ถูกต้อง";
+    return;
   }
 
-  const pairs = {};
-  for (let i = 0; i < people.length; i++) {
-    let receiver = shuffled[i];
-    if (receiver === people[i]) {
-      receiver = shuffled[(i + 1) % people.length];
-      shuffled[(i + 1) % people.length] = shuffled[i];
-    }
-    pairs[people[i]] = receiver;
+  if (snap.data().used) {
+    output.innerText = "คุณใช้สิทธิ์ไปแล้ว";
+    return;
   }
 
-  // ===== โหลดข้อมูลการจับจาก localStorage =====
-  let drawn = JSON.parse(localStorage.getItem("drawn_people") || "{}");
+  const prize = prizes[Math.floor(Math.random() * prizes.length)];
 
-  function draw() {
-    const name = document.getElementById("name").value.trim();
-    const result = document.getElementById("result");
+  await ref.update({
+    used: true,
+    result: prize
+  });
 
-    if (!pairs[name]) {
-      result.innerHTML = "❌ ไม่พบชื่อนี้ในระบบ";
-      return;
-    }
-
-    if (drawn[name]) {
-      result.innerHTML = `⚠️ คุณจับฉลากไปแล้ว<br>🎁 คุณต้องซื้อของขวัญให้ <b>${drawn[name]}</b>`;
-      return;
-    }
-
-    drawn[name] = pairs[name];
-    localStorage.setItem("drawn_people", JSON.stringify(drawn));
-
-    result.innerHTML = `🎁 คุณต้องซื้อของขวัญให้ <b>${pairs[name]}</b><br><small>กรุณาแคปหน้าจอเก็บไว้</small>`;
-  }
+  output.innerText = "🎁 คุณได้: " + prize;
+}
 </script>
-
 </body>
 </html>
