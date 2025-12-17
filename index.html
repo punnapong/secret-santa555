@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Secret Santa ออนไลน์</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
-body { font-family: sans-serif; text-align: center; margin-top:50px; }
+body { font-family: sans-serif; text-align:center; margin-top:50px; }
 input, button { font-size:22px; padding:10px; margin:8px; }
 #result { font-size:26px; margin-top:20px; }
 </style>
@@ -17,65 +22,80 @@ input, button { font-size:22px; padding:10px; margin:8px; }
 <p id="result"></p>
 
 <script>
-// ข้อมูลผู้เล่นและสถานะ
+// ======================
+// 🔧 แก้ค่า Firebase config ให้ตรงกับโปรเจกต์คุณ
+// ======================
+firebase.initializeApp({
+  apiKey: "API_KEY_ของคุณ",
+  authDomain: "PROJECT_ID.firebaseapp.com",
+  projectId: "PROJECT_ID"
+});
+
+// รายชื่อผู้เล่น + รหัส
 const users = {
-  "BRT7K2": { name:"ไบร์ท", used:false, target:"" },
-  "TRD9Q4": { name:"เติร์ด", used:false, target:"" },
-  "BRD5X8": { name:"เบิร์ด", used:false, target:"" },
-  "MAY3L6": { name:"เมย์", used:false, target:"" }
+  "BRT7K2": "ไบร์ท",
+  "TRD9Q4": "เติร์ด",
+  "BRD5X8": "เบิร์ด",
+  "MAY3L6": "เมย์"
 };
 
-// โหลดสถานะจาก localStorage เผื่อลืม
-let data = JSON.parse(localStorage.getItem("santa_data")) || users;
-
-// สุ่มจับคู่ Secret Santa (ไม่ให้ตัวเอง)
-function assignTargets() {
-  const names = Object.values(users).map(u => u.name);
-  const targets = shuffle([...names]); // สุ่มลำดับ
-  const keys = Object.keys(users);
-  
-  keys.forEach((key, i) => {
-    if (!data[key].target) { // ถ้ายังไม่จับ
-      // หาคนสุ่มไม่ใช่ตัวเอง
-      let target = targets[i];
-      if (target === data[key].name) {
-        // สลับกับคนอื่น
-        const swapIndex = (i + 1) % targets.length;
-        [targets[i], targets[swapIndex]] = [targets[swapIndex], targets[i]];
-        target = targets[i];
-      }
-      data[key].target = target;
-    }
-  });
-}
+const db = firebase.firestore();
 
 // ฟังก์ชันสุ่มลำดับ
 function shuffle(array) {
-  for(let i=array.length-1; i>0; i--){
+  for(let i=array.length-1;i>0;i--){
     const j = Math.floor(Math.random()*(i+1));
     [array[i], array[j]] = [array[j], array[i]];
   }
   return array;
 }
 
+// ฟังก์ชันสุ่มและบันทึกคู่ Secret Santa
+async function assignTargets() {
+  const snap = await db.collection("santa").get();
+  if(!snap.empty) return; // ถ้ามีแล้วไม่สุ่มใหม่
+
+  const names = Object.values(users);
+  const targets = shuffle([...names]);
+  const keys = Object.keys(users);
+
+  keys.forEach((key,i)=>{
+    let target = targets[i];
+    if(target === users[key]){
+      const swapIndex = (i+1) % targets.length;
+      [targets[i], targets[swapIndex]] = [targets[swapIndex], targets[i]];
+      target = targets[i];
+    }
+    db.collection("santa").doc(key).set({
+      name: users[key],
+      target: target,
+      used: false
+    });
+  });
+}
+
 // ฟังก์ชันดูผล
-function draw() {
+async function draw() {
   const code = document.getElementById("code").value.trim();
   const output = document.getElementById("result");
-  
-  if (!data[code]) {
+
+  if(!users[code]){
     output.innerText = "❌ รหัสไม่ถูกต้อง";
     return;
   }
 
-  // ถ้ายังไม่เคยจับคู่ → สุ่มและบันทึก
-  if (!data[code].used) {
-    assignTargets();
-    data[code].used = true;
-    localStorage.setItem("santa_data", JSON.stringify(data));
+  await assignTargets(); // สุ่มคู่ถ้ายังไม่ทำ
+
+  const doc = await db.collection("santa").doc(code).get();
+  const data = doc.data();
+
+  if(data.used){
+    output.innerText = "🎁 " + data.name + " ต้องซื้อของให้: " + data.target;
+    return;
   }
 
-  output.innerText = "🎁 " + data[code].name + " ต้องซื้อของให้: " + data[code].target;
+  await db.collection("santa").doc(code).update({used:true});
+  output.innerText = "🎉 " + data.name + " ต้องซื้อของให้: " + data.target;
 }
 </script>
 
