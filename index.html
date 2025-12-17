@@ -3,10 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>จับฉลากปีใหม่</title>
-
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <style>
 body {
   font-family: sans-serif;
@@ -36,54 +32,48 @@ input, button {
 
 <script>
 // ======================
-// 🔧 Firebase config
+// ข้อมูลผู้เล่น + รหัส + สถานะใช้แล้ว + ของขวัญ
 // ======================
-firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID"
-});
+const users = {
+  "BRT7K2": { name: "ไบร์ท", used: false, result: "" },
+  "TRD9Q4": { name: "เติร์ด", used: false, result: "" },
+  "BRD5X8": { name: "เบิร์ด", used: false, result: "" },
+  "MAY3L6": { name: "เมย์", used: false, result: "" }
+};
 
-const db = firebase.firestore();
+// โหลดสถานะเดิมจาก localStorage
+let data = JSON.parse(localStorage.getItem("gift_data")) || users;
+
+// รายการของขวัญ
 const prizes = ["แก้วน้ำ", "ตุ๊กตา", "ร่ม", "ของขวัญพิเศษ"];
 
-async function draw() {
+function draw() {
   const code = document.getElementById("code").value.trim();
   const output = document.getElementById("result");
 
-  if (!code) return;
-
-  const ref = db.collection("users").doc(code);
-  const snap = await ref.get();
-
-  if (!snap.exists) {
+  if (!data[code]) {
     output.innerText = "❌ รหัสไม่ถูกต้อง";
     return;
   }
 
-  const data = snap.data();
-
-  // ======================
   // ถ้าเคยจับแล้ว → แสดงผลเดิม
-  // ======================
-  if (data.used) {
+  if (data[code].used) {
     output.innerText =
-      "🎁 " + data.name + " ได้รับ: " + data.result;
+      "🎁 " + data[code].name + " ได้รับ: " + data[code].result;
     return;
   }
 
-  // ======================
-  // ยังไม่เคยจับ → สุ่มครั้งแรก
-  // ======================
+  // ถ้ายังไม่เคยจับ → สุ่มของขวัญครั้งแรก
   const prize = prizes[Math.floor(Math.random() * prizes.length)];
 
-  await ref.update({
-    used: true,
-    result: prize
-  });
+  data[code].used = true;
+  data[code].result = prize;
+
+  // บันทึกสถานะลง localStorage
+  localStorage.setItem("gift_data", JSON.stringify(data));
 
   output.innerText =
-    "🎉 " + data.name + " ได้รับ: " + prize;
+    "🎉 " + data[code].name + " ได้รับ: " + prize;
 }
 </script>
 
