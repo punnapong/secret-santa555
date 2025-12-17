@@ -2,78 +2,80 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>จับฉลากปีใหม่</title>
+<title>Secret Santa ออนไลน์</title>
 <style>
-body {
-  font-family: sans-serif;
-  text-align: center;
-  margin-top: 50px;
-}
-input, button {
-  font-size: 22px;
-  padding: 10px;
-  margin: 8px;
-}
-#result {
-  font-size: 26px;
-  margin-top: 20px;
-}
+body { font-family: sans-serif; text-align: center; margin-top:50px; }
+input, button { font-size:22px; padding:10px; margin:8px; }
+#result { font-size:26px; margin-top:20px; }
 </style>
 </head>
-
 <body>
 
 <h2>กรอกรหัสของคุณ</h2>
-<input id="code" placeholder="เช่น BRT7K2">
-<br>
-<button onclick="draw()">ดูผลจับฉลาก</button>
-
+<input id="code" placeholder="เช่น BRT7K2"><br>
+<button onclick="draw()">ดูว่าใครต้องซื้อของให้</button>
 <p id="result"></p>
 
 <script>
-// ======================
-// ข้อมูลผู้เล่น + รหัส + สถานะใช้แล้ว + ของขวัญ
-// ======================
+// ข้อมูลผู้เล่นและสถานะ
 const users = {
-  "BRT7K2": { name: "ไบร์ท", used: false, result: "" },
-  "TRD9Q4": { name: "เติร์ด", used: false, result: "" },
-  "BRD5X8": { name: "เบิร์ด", used: false, result: "" },
-  "MAY3L6": { name: "เมย์", used: false, result: "" }
+  "BRT7K2": { name:"ไบร์ท", used:false, target:"" },
+  "TRD9Q4": { name:"เติร์ด", used:false, target:"" },
+  "BRD5X8": { name:"เบิร์ด", used:false, target:"" },
+  "MAY3L6": { name:"เมย์", used:false, target:"" }
 };
 
-// โหลดสถานะเดิมจาก localStorage
-let data = JSON.parse(localStorage.getItem("gift_data")) || users;
+// โหลดสถานะจาก localStorage เผื่อลืม
+let data = JSON.parse(localStorage.getItem("santa_data")) || users;
 
-// รายการของขวัญ
-const prizes = ["แก้วน้ำ", "ตุ๊กตา", "ร่ม", "ของขวัญพิเศษ"];
+// สุ่มจับคู่ Secret Santa (ไม่ให้ตัวเอง)
+function assignTargets() {
+  const names = Object.values(users).map(u => u.name);
+  const targets = shuffle([...names]); // สุ่มลำดับ
+  const keys = Object.keys(users);
+  
+  keys.forEach((key, i) => {
+    if (!data[key].target) { // ถ้ายังไม่จับ
+      // หาคนสุ่มไม่ใช่ตัวเอง
+      let target = targets[i];
+      if (target === data[key].name) {
+        // สลับกับคนอื่น
+        const swapIndex = (i + 1) % targets.length;
+        [targets[i], targets[swapIndex]] = [targets[swapIndex], targets[i]];
+        target = targets[i];
+      }
+      data[key].target = target;
+    }
+  });
+}
 
+// ฟังก์ชันสุ่มลำดับ
+function shuffle(array) {
+  for(let i=array.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// ฟังก์ชันดูผล
 function draw() {
   const code = document.getElementById("code").value.trim();
   const output = document.getElementById("result");
-
+  
   if (!data[code]) {
     output.innerText = "❌ รหัสไม่ถูกต้อง";
     return;
   }
 
-  // ถ้าเคยจับแล้ว → แสดงผลเดิม
-  if (data[code].used) {
-    output.innerText =
-      "🎁 " + data[code].name + " ได้รับ: " + data[code].result;
-    return;
+  // ถ้ายังไม่เคยจับคู่ → สุ่มและบันทึก
+  if (!data[code].used) {
+    assignTargets();
+    data[code].used = true;
+    localStorage.setItem("santa_data", JSON.stringify(data));
   }
 
-  // ถ้ายังไม่เคยจับ → สุ่มของขวัญครั้งแรก
-  const prize = prizes[Math.floor(Math.random() * prizes.length)];
-
-  data[code].used = true;
-  data[code].result = prize;
-
-  // บันทึกสถานะลง localStorage
-  localStorage.setItem("gift_data", JSON.stringify(data));
-
-  output.innerText =
-    "🎉 " + data[code].name + " ได้รับ: " + prize;
+  output.innerText = "🎁 " + data[code].name + " ต้องซื้อของให้: " + data[code].target;
 }
 </script>
 
